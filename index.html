@@ -1,36 +1,247 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aquifer - Modern Minesweeper</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div class="container">
-        <h1 class="logo">Aquifer</h1>
-        <p class="subtitle">A clean, modern Minesweeper experience.</p>
-
-        <div class="game-modes">
-            <button>Easy</button>
-            <button>Medium</button>
-            <button>Hard</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Aquifer — a modern, premium Minesweeper experience."
+    />
+    <title>Aquifer — Modern Minesweeper</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="site-header">
+        <div class="brand">
+          <span class="wordmark">Aquifer</span>
+          <div class="tagline">A modern Minesweeper experience.</div>
         </div>
+        <div class="header-actions">
+          <button
+            class="icon-button"
+            id="settings-button"
+            type="button"
+            aria-label="Open settings"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M12 15a3 3 0 100-6 3 3 0 000 6z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M19.4 17.6A9 9 0 012.6 4.4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M15.8 15.8A5.5 5.5 0 018.6 8.4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
 
-        <ul class="features-list">
-            <li>Precision Stopwatch (0.01s)</li>
-            <li>First-Click Safety</li>
-            <li>Chording Support</li>
-            <li>Mine Counter</li>
-        </ul>
+          <div
+            class="settings-popover"
+            id="settings-popover"
+            role="dialog"
+            aria-label="Game settings"
+            aria-hidden="true"
+            hidden
+          >
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Sound effects</div>
+                <div class="setting-description">
+                  Subtle confirmations on actions.
+                </div>
+              </div>
+              <button
+                class="toggle-switch"
+                id="setting-sound"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                data-on="true"
+                aria-label="Toggle sound effects"
+              ></button>
+            </div>
 
-        <div class="status-bar">
-            Time: <span id="timer">0.00</span>s | Mines: <span id="mine-count">0</span>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Reduced motion</div>
+                <div class="setting-description">
+                  Minimize transitions and animations.
+                </div>
+              </div>
+              <button
+                class="toggle-switch"
+                id="setting-motion"
+                type="button"
+                role="switch"
+                aria-checked="false"
+                data-on="false"
+                aria-label="Toggle reduced-motion mode"
+              ></button>
+            </div>
+          </div>
         </div>
+      </header>
+
+      <main class="game-section">
+        <section class="game-panel" aria-labelledby="game-title">
+          <div
+            class="difficulty-selector"
+            role="group"
+            aria-label="Game difficulty"
+          >
+            <button
+              class="difficulty-option"
+              type="button"
+              id="btn-easy"
+              data-active="true"
+              aria-pressed="true"
+            >
+              Easy
+            </button>
+            <button
+              class="difficulty-option"
+              type="button"
+              id="btn-medium"
+              data-active="false"
+              aria-pressed="false"
+            >
+              Medium
+            </button>
+            <button
+              class="difficulty-option"
+              type="button"
+              id="btn-hard"
+              data-active="false"
+              aria-pressed="false"
+            >
+              Hard
+            </button>
+          </div>
+          <div class="info-bar">
+            <div class="info-block mines" id="mine-block">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <circle
+                  cx="12"
+                  cy="9"
+                  r="3.2"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  fill="none"
+                />
+                <circle cx="9.2" cy="6.4" r="1.4" fill="currentColor" />
+                <circle cx="14.8" cy="6.4" r="1.4" fill="currentColor" />
+                <circle cx="9.2" cy="11.6" r="1.4" fill="currentColor" />
+                <circle cx="14.8" cy="11.6" r="1.4" fill="currentColor" />
+              </svg>
+              <span id="mine-count">10</span>
+            </div>
+
+            <div class="info-block timer" id="timer-block">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+              <span id="timer">00:00.00</span>
+            </div>
+
+            <button
+              class="restart-button"
+              type="button"
+              id="restart-button"
+              aria-label="Restart game"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M1 4v6h6" />
+                <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="status-line" id="status" data-state="ready">
+            Ready when you are.
+          </div>
+          <button
+            class="flag-toggle"
+            id="flag-toggle"
+            type="button"
+            role="switch"
+            aria-checked="false"
+            aria-label="Toggle flag mode"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M4.2 21L20.5 4.6" />
+              <path d="M4.2 21H18.5" />
+              <path d="M18.5 4.6V17" />
+              <path d="M18.5 9H19.5" />
+            </svg>
+            <span>Flag</span>
+          </button>
+          <div id="game-board" role="grid" aria-label="Minesweeper board"></div>
+
+          <div
+            id="result-banner"
+            class="result-banner"
+            aria-live="polite"
+            aria-atomic="true"
+            hidden
+          ></div>
+        </section>
+      </main>
     </div>
 
-    <script>
-        console.log("Aquifer initialized.");
-    </script>
-</body>
+    <script src="game.js"></script>
+  </body>
 </html>
