@@ -6,7 +6,7 @@
 const CONFIG = {
   EASY: { rows: 9, cols: 9, mines: 10 },
   MEDIUM: { rows: 16, cols: 16, mines: 40 },
-  HARD: { rows: 30, cols: 16, mines: 99 },
+  HARD: { rows: 16, cols: 30, mines: 99 },
 };
 
 const CELL_SIZES = {
@@ -35,10 +35,11 @@ class Game {
     this.cols = this.config.cols;
     this.mines = this.config.mines;
 
+    this.stopTimer();
+
     this.grid = [];
-    this.cellElements = [];
+    this.createdMines = false;
     for (let r = 0; r < this.rows; r++) {
-      const rowCells = [];
       const rowData = [];
       for (let c = 0; c < this.cols; c++) {
         rowData.push({
@@ -50,10 +51,8 @@ class Game {
           row: r,
           col: c,
         });
-        rowCells.push(null);
       }
       this.grid.push(rowData);
-      this.cellElements.push(rowCells);
     }
 
     this.firstClick = true;
@@ -75,17 +74,13 @@ class Game {
     console.log(
       `Aquifer game started: ${this.rows}×${this.cols} with ${this.mines} mines.`,
     );
-
-    window.game = this;
   }
 
   createBoard() {
     const sizes = CELL_SIZES[this.mode] || CELL_SIZES.EASY;
 
     this.gameContainer.innerHTML = "";
-    if (!this.gameContainer.classList.contains("board")) {
-      this.gameContainer.classList.add("board");
-    }
+    this.gameContainer.classList.add("board");
 
     this.gameContainer.style.display = "grid";
     this.gameContainer.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
@@ -93,7 +88,11 @@ class Game {
     this.gameContainer.style.maxHeight = `${Math.min(this.rows * (sizes.cell + sizes.gap) + 20, 560)}px`;
     this.gameContainer.style.overflowY = "auto";
 
+    this.cellElements = [];
+
     for (let r = 0; r < this.rows; r++) {
+      const currentRow = [];
+
       for (let c = 0; c < this.cols; c++) {
         const cellDiv = document.createElement("div");
         cellDiv.className = "cell";
@@ -102,9 +101,11 @@ class Game {
           "aria-label",
           `Cell row ${r + 1}, column ${c + 1}, unrevealed.`,
         );
+        cellDiv.tabIndex = 0;
+        cellDiv.dataset.row = String(r);
+        cellDiv.dataset.col = String(c);
         cellDiv.style.width = `${sizes.cell}px`;
         cellDiv.style.height = `${sizes.cell}px`;
-        cellDiv.style.fontSize = cellDiv.style.fontSize || "";
 
         const revealHandler = () => this.handleInput(r, c, "reveal");
         const flagHandler = () => this.handleInput(r, c, "flag");
@@ -120,13 +121,17 @@ class Game {
           if (!this.gameActive || this.gameOver) return;
 
           const cell = this.grid[r][c];
-          if (cell.isRevealed) {
+          if (cell.isRevealed && e.shiftKey) {
             this.handleChord(r, c);
+            try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
           }
         });
 
-        this.cellElements[r][c] = cellDiv;
+        currentRow.push(cellDiv);
+        this.gameContainer.appendChild(cellDiv);
       }
+
+      this.cellElements.push(currentRow);
     }
   }
 
@@ -235,12 +240,11 @@ class Game {
         }
       }
     } else {
-      this.updateStatus("playing");
-      this.checkWin();
+      this.finishFirstReveal();
     }
   }
 
-  handleChord(r, c) {
+  handleChord(r, c, event) {
     if (!this.gameActive || this.gameOver) return;
 
     const cell = this.grid[r][c];
@@ -248,6 +252,10 @@ class Game {
 
     const flags = this.countFlagsAround(r, c);
     if (flags !== cell.neighborCount) return;
+
+    if (event) {
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch (err) {}
+    }
 
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
@@ -284,7 +292,7 @@ class Game {
       }
     }
 
-    this.checkWin();
+    this.finishFirstReveal();
   }
 
   toggleFlag(r, c) {
@@ -304,26 +312,25 @@ class Game {
       this.gameOver ? "lost" : this.isWon() ? "won" : "playing",
     );
     this.mineLabel.innerText = this.mines - this.flagCount();
-
-    if (this.isWon()) {
-      this.gameOver = true;
-      this.gameActive = false;
-      this.stopTimer();
-      this.showWin();
-    }
   }
 
   updateCellDisplay(r, c) {
     const cell = this.grid[r][c];
-    const element = this.cellElements[r][c];
+    const element = this.cellElements[r]?.[c];
     if (!element) return;
 
-    const leaveRevealed = cell.isRevealed;
+    element.classList.remove(
+      "cell--revealed",
+      "cell--empty",
+      "cell--mine",
+      "cell--wrong-flag",
+      "cell--flagged",
+    );
 
-    if (leaveRevealed) {
+    if (cell.isRevealed) {
       if (cell.isMine) {
         element.classList.add("cell--mine");
-        element.innerHTML = this.mineSvg(true);
+        element.innerHTML = this.mineSvg(false);
         element.setAttribute(
           "aria-label",
           `Cell row ${r + 1}, column ${c + 1}, mine.`,
@@ -332,7 +339,6 @@ class Game {
       }
 
       element.classList.add("cell--revealed");
-      element.classList.remove("cell--flagged", "cell--wrong-flag");
 
       if (cell.neighborCount === 0) {
         element.classList.add("cell--empty");
@@ -344,7 +350,6 @@ class Game {
         return;
       }
 
-      element.classList.remove("cell--empty");
       element.innerHTML = this.numberSpan(cell.neighborCount);
       element.setAttribute(
         "aria-label",
@@ -352,17 +357,6 @@ class Game {
       );
       return;
     }
-
-    if (cell.isFlagged) {
-      cell.isWrongFlag = false;
-    }
-
-    element.classList.remove(
-      "cell--revealed",
-      "cell--empty",
-      "cell--mine",
-      "cell--wrong-flag",
-    );
 
     if (cell.isFlagged) {
       element.classList.add("cell--flagged");
@@ -374,7 +368,6 @@ class Game {
       return;
     }
 
-    element.classList.remove("cell--flagged");
     element.classList.add("cell");
     element.innerHTML = "";
     element.setAttribute(
@@ -451,11 +444,12 @@ class Game {
   }
 
   startTimer() {
-    if (this.timerInterval) return;
-    if (this.startTime === null) {
-      this.startTime = performance.now();
-      this.timerInterval = setInterval(() => this.tick(), 50);
-    }
+    if (this.startTime !== null) return;
+
+    this.stopTimer();
+
+    this.startTime = performance.now();
+    this.timerInterval = window.setInterval(() => this.tick(), 50);
   }
 
   tick() {
@@ -466,14 +460,16 @@ class Game {
 
   stopTimer() {
     if (this.timerInterval) {
-      clearInterval(this.timerInterval);
+      window.clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
+
     if (this.startTime !== null) {
       this.timerLabel.innerText = formatTime(
         performance.now() - this.startTime,
       );
     }
+
     this.startTime = null;
   }
 
@@ -503,19 +499,29 @@ class Game {
           <div><strong>Boom.</strong></div>
           <button class="play-again" type="button" id="play-again-lost">Try Again</button>
         </div>
-      `;
-      this.winBanner.classList.remove("win-banner-hidden");
+      `;    this.winBanner.classList.remove("win-banner-hidden");
       const lostButton = this.winBanner.querySelector("#play-again-lost");
       if (lostButton) {
         lostButton.addEventListener("click", () => this.reset(this.mode));
       }
     }
   }
+
   destroy() {
     this.stopTimer();
     if (this.gameContainer && this.gameContainer.parentNode) {
       this.gameContainer.parentNode.removeChild(this.gameContainer);
     }
+  }
+
+  syncDifficultyButtons(mode) {
+    document.querySelectorAll(".difficulty-option").forEach((button) => {
+      const isActive =
+        button.id === `btn-${mode.toLowerCase()}` ||
+        button.dataset.mode === mode.toUpperCase();
+      button.dataset.active = isActive ? "true" : "false";
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
   }
 
   clearBoard() {
@@ -552,19 +558,23 @@ class Game {
 
         if (!cell.isFlagged && !cell.isRevealed && cell.isMine) {
           cell.isRevealed = true;
-          this.updateCellDisplay(r, c);
           revealedMines.push({ r, c });
         }
 
         if (cell.isFlagged && !cell.isMine) {
           cell.isWrongFlag = true;
-          this.updateCellDisplay(r, c);
         }
       }
     }
 
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        this.updateCellDisplay(r, c);
+      }
+    }
+
     for (const { r, c } of revealedMines) {
-      const element = this.cellElements[r][c];
+      const element = this.cellElements[r]?.[c];
       if (element) {
         element.classList.add("cell--wrong-flag");
         element.setAttribute(
@@ -578,44 +588,6 @@ class Game {
   isFinalMine() {
     return false;
   }
-
-  isWon() {
-    return (
-      this.gameActive &&
-      this.grid.every((row) =>
-        row.every((cell) => !cell.isMine || cell.isRevealed),
-      )
-    );
-  }
-  checkWin() {
-    let revealedSafe = 0;
-    let flaggedWrong = 0;
-
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        const cell = this.grid[r][c];
-
-        if (cell.isRevealed) {
-          revealedSafe++;
-        }
-
-        if (cell.isFlagged && !cell.isMine) {
-          flaggedWrong++;
-        }
-      }
-    }
-
-    if (
-      revealedSafe === this.rows * this.cols - this.mines &&
-      flaggedWrong === 0
-    ) {
-      this.gameOver = true;
-      this.gameActive = false;
-      this.stopTimer();
-      this.showWin();
-    }
-  }
-
   isWon() {
     if (!this.gameActive) return false;
 
@@ -635,6 +607,15 @@ class Game {
 
   isLost() {
     return !this.gameActive && !this.isWon();
+  }
+
+  checkWin() {
+    if (this.isWon()) {
+      this.gameOver = true;
+      this.gameActive = false;
+      this.stopTimer();
+      this.showWin();
+    }
   }
 
   updateStatus(state) {
@@ -665,9 +646,10 @@ class Game {
     this.flagModeActive = active;
     if (this.flagToggleButton) {
       this.flagToggleButton.setAttribute(
-        "data-active",
+        "aria-pressed",
         active ? "true" : "false",
       );
+      this.flagToggleButton.classList.toggle("is-active", active);
     }
   }
 }
@@ -699,13 +681,13 @@ diffButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const mode = button.id.replace("btn-", "").toUpperCase();
     game.reset(mode);
-    syncDifficultyButtons(mode);
+    game.syncDifficultyButtons(mode);
   });
 });
 
 document.getElementById("restart-button").addEventListener("click", () => {
   game.reset(game.mode);
-  syncDifficultyButtons(game.mode);
+  game.syncDifficultyButtons(game.mode);
 });
 
 document.getElementById("flag-toggle").addEventListener("click", (e) => {
@@ -734,6 +716,32 @@ document.addEventListener("pointerup", (e) => {
 document.addEventListener("contextmenu", (e) => {
   if (!game.gameContainer.contains(e.target)) return;
   e.preventDefault();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    const cell = e.target.closest(".cell");
+    if (cell && document.activeElement === cell) {
+      e.preventDefault();
+      const r = Number(cell.getAttribute("data-row"));
+      const c = Number(cell.getAttribute("data-col"));
+      if (!Number.isNaN(r) && !Number.isNaN(c)) {
+        game.handleInput(r, c, "reveal");
+      }
+    }
+  }
+
+  if (e.key === "f" || e.key === "F") {
+    const cell = e.target.closest(".cell");
+    if (cell && document.activeElement === cell) {
+      e.preventDefault();
+      const r = Number(cell.getAttribute("data-row"));
+      const c = Number(cell.getAttribute("data-col"));
+      if (!Number.isNaN(r) && !Number.isNaN(c)) {
+        game.handleInput(r, c, "flag");
+      }
+    }
+  }
 });
 
 /* ---------- Settings ---------- */
